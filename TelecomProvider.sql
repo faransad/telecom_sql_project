@@ -11,11 +11,11 @@ CREATE TABLE Customer (
     customer_id INT PRIMARY KEY,
     full_name VARCHAR(100) NOT NULL,
     phone VARCHAR(20) UNIQUE,
-	email VARCHAR(100) CHECK (email REGEXP '^[^@]+@[^@]+\\.[^@]+$'),
+    email VARCHAR(100) CHECK (email REGEXP '^[^@]+@[^@]+\\.[^@]+$'),
     location_id INT NOT NULL,
     registration_date DATE NOT NULL,
     status ENUM('active', 'inactive') NOT NULL,
-	FOREIGN KEY (location_id) REFERENCES Location(location_id)
+    FOREIGN KEY (location_id) REFERENCES Location(location_id)
 )ENGINE=InnoDB;
 
 
@@ -30,7 +30,7 @@ CREATE TABLE Subscription (
     end_date DATE NOT NULL,
     CHECK(start_date < end_date),
     status ENUM('active', 'inactive') NOT NULL,
-	customer_id INT NOT NULL,
+    customer_id INT NOT NULL,
     plan_id INT NOT NULL,
     FOREIGN KEY (customer_id) REFERENCES Customer(customer_id) ON UPDATE CASCADE,
     FOREIGN KEY (plan_id) REFERENCES ServicePlan(plan_id)
@@ -99,7 +99,7 @@ DROP TABLE IF EXISTS UsageData;
 CREATE TABLE UsageData (
     usage_id INT PRIMARY KEY,
     usage_type ENUM('call', 'sms', 'data') NOT NULL,
-	amount DECIMAL(10,2) NOT NULL, -- minutes for call, count for sms, MB for data   
+    amount DECIMAL(10,2) NOT NULL, -- minutes for call, count for sms, MB for data   
     subscription_id INT NOT NULL,
     network_element_id INT NOT NULL,
     time_id INT NOT NULL,
@@ -107,7 +107,7 @@ CREATE TABLE UsageData (
     ON UPDATE CASCADE
     ON DELETE RESTRICT,
     FOREIGN KEY (network_element_id) REFERENCES NetworkElement(network_element_id),
-	FOREIGN KEY (time_id) REFERENCES Time(time_id)
+    FOREIGN KEY (time_id) REFERENCES Time(time_id)
 )ENGINE=InnoDB;
 
 
@@ -144,7 +144,7 @@ CREATE TABLE Transaction (
     transaction_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
     status ENUM('success', 'failed', 'pending') NOT NULL,
     description TEXT NOT NULL,
-	customer_id INT NOT NULL,
+    customer_id INT NOT NULL,
     FOREIGN KEY (customer_id) REFERENCES Customer(customer_id) 
 	ON UPDATE CASCADE
 	ON DELETE RESTRICT
@@ -158,7 +158,7 @@ CREATE TABLE Transaction (
 DROP TABLE IF EXISTS Payment;
 CREATE TABLE Payment (
     payment_id INT PRIMARY KEY,
-	payment_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    payment_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
     amount_paid DECIMAL(10,2) NOT NULL CHECK(amount_paid >= 0),
     payment_status ENUM('completed', 'failed', 'pending') NOT NULL,
     billing_id INT NOT NULL,
@@ -188,10 +188,10 @@ CREATE TABLE NetworkElement (
     name VARCHAR(100) NOT NULL,
     element_type ENUM('tower', 'router', 'switch') NOT NULL,
     status ENUM('active', 'inactive') NOT NULL,
-	location_id INT NOT NULL,
-	employee_id INT NOT NULL,
+    location_id INT NOT NULL,  
+    employee_id INT NOT NULL,
     FOREIGN KEY (location_id) REFERENCES Location(location_id),
-	FOREIGN KEY (employee_id) REFERENCES Employee(employee_id)
+    FOREIGN KEY (employee_id) REFERENCES Employee(employee_id)
     )ENGINE=InnoDB;
 
 
@@ -233,8 +233,8 @@ CREATE TABLE CustomerSupport (
     support_type ENUM('technical', 'billing') NOT NULL,
     description TEXT NOT NULL,
     status ENUM('open', 'closed', 'in_progress') NOT NULL,
-	created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
-	closed_at TIMESTAMP NULL DEFAULT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    closed_at TIMESTAMP NULL DEFAULT NULL,
     priority ENUM('low', 'medium', 'high'),
     customer_id INT NOT NULL,
     employee_id INT NOT NULL,
