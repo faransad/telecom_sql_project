@@ -1,4 +1,4 @@
-# Telecommunications Database Project
+# Telecommunications Database Project 
 
 This project implements a relational OLTP database for a telecommunications provider, using MySQL. It includes schema design, sample data, and analytical SQL queries for business insights.
 
