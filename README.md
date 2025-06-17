@@ -28,7 +28,7 @@ Make sure to enable foreign key checks and run scripts in the correct order to a
 
 ## Optional: Public SQL Script
 You can access the full SQL script via this link:
-📎 
+📎 https://github.com/faransad/telecom_sql_project.git 
 
 ---
 
