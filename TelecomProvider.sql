@@ -1,6 +1,6 @@
 
-CREATE DATABASE IF NOT EXISTS Telecom_Providerr;
-USE Telecom_Providerr;
+CREATE DATABASE IF NOT EXISTS Telecom_Provider;
+USE Telecom_Provider;
 
 -- -------------------------------
 -- TABLE: Customer
