@@ -24,9 +24,9 @@ Make sure to enable foreign key checks and run scripts in the correct order to a
 - `DROP TABLE IF EXISTS` statements are used to make re-execution easier.
 - All queries were tested and run without errors in MySQL Workbench.
 - Ensure correct date formats (e.g., `YYYY-MM-DD`) when adding your own data.
-- The project uses realistic telecom scenarios like billing, usage analysis, promotions, and failed transactions.
+- The project uses realistic telecom scenarios like billing, usage analysis, promotions.
 
-## Optional: Public SQL Script
+## Public SQL Script
 You can access the full SQL script via this link:
 📎 https://github.com/faransad/telecom_sql_project.git 
 
