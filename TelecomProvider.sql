@@ -2,20 +2,92 @@
 CREATE DATABASE IF NOT EXISTS Telecom_Provider;
 USE Telecom_Provider;
 
+SET FOREIGN_KEY_CHECKS = 0;
+
+DROP TABLE IF EXISTS CustomerSupport;
+DROP TABLE IF EXISTS UsageData;
+DROP TABLE IF EXISTS NetworkElement;
+DROP TABLE IF EXISTS Time;
+DROP TABLE IF EXISTS Transaction;
+DROP TABLE IF EXISTS Payment;
+DROP TABLE IF EXISTS Billing;
+DROP TABLE IF EXISTS SubscriptionPromotion;
+DROP TABLE IF EXISTS Subscription;
+DROP TABLE IF EXISTS Promotion;
+DROP TABLE IF EXISTS ServicePlan;
+DROP TABLE IF EXISTS Customer;
+DROP TABLE IF EXISTS Employee;
+DROP TABLE IF EXISTS Location;
+
+SET FOREIGN_KEY_CHECKS = 1;
+
+
+-- -------------------------------
+-- TABLE: Location
+-- Purpose: supports geographical references across entities.
+-- -------------------------------
+CREATE TABLE Location (
+    location_id INT PRIMARY KEY,
+    city VARCHAR(50) UNIQUE,
+    country VARCHAR(50) UNIQUE
+)ENGINE=InnoDB;
+
+
+-- -------------------------------
+-- TABLE: Employee
+-- Purpose: stores staff information
+-- -------------------------------
+CREATE TABLE Employee (
+    employee_id INT PRIMARY KEY,
+    full_name VARCHAR(100) NOT NULL,
+    email VARCHAR(100) UNIQUE NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    role ENUM('support', 'network_admin') NOT NULL,
+    status ENUM('active', 'inactive') NOT NULL
+)ENGINE=InnoDB;
+
+
 -- -------------------------------
 -- TABLE: Customer
 -- Purpose: stores demographic and contact information.
 -- -------------------------------
-DROP TABLE IF EXISTS Customer;
 CREATE TABLE Customer (
     customer_id INT PRIMARY KEY,
     full_name VARCHAR(100) NOT NULL,
     phone VARCHAR(20) UNIQUE,
-    email VARCHAR(100) CHECK (email REGEXP '^[^@]+@[^@]+\\.[^@]+$'),
+	email VARCHAR(100) CHECK (email REGEXP '^[^@]+@[^@]+\\.[^@]+$'),
     location_id INT NOT NULL,
     registration_date DATE NOT NULL,
     status ENUM('active', 'inactive') NOT NULL,
-    FOREIGN KEY (location_id) REFERENCES Location(location_id)
+	FOREIGN KEY (location_id) REFERENCES Location(location_id)
+)ENGINE=InnoDB;
+
+
+-- -------------------------------
+-- TABLE: ServicePlan
+-- Purpose: defines the features and pricing of plans.
+-- -------------------------------
+CREATE TABLE ServicePlan (
+    plan_id INT PRIMARY KEY,
+    plan_name VARCHAR(100) NOT NULL,
+    price DECIMAL(10,2) CHECK (price > 0),
+    data_limit_gb DECIMAL(10,2) NOT NULL,
+    call_minutes INT NOT NULL,
+    sms_count INT NOT NULL,
+    validity_days INT NOT NULL,
+    status ENUM('active', 'inactive') NOT NULL
+)ENGINE=InnoDB;
+
+
+-- -------------------------------
+-- TABLE: Time
+-- Purpose: provides a time dimension for reporting and analysis.
+-- -------------------------------
+CREATE TABLE Time (
+    time_id INT PRIMARY KEY,
+    full_timestamp TIMESTAMP NOT NULL,
+    day_of_week VARCHAR(20) NOT NULL,
+    part_of_day ENUM('morning', 'afternoon', 'evening', 'night') NOT NULL
 )ENGINE=InnoDB;
 
 
@@ -23,16 +95,32 @@ CREATE TABLE Customer (
 -- TABLE: Subscription
 -- Purpose: connects customers with specific service plans.
 -- -------------------------------
-DROP TABLE IF EXISTS Subscription;
 CREATE TABLE Subscription (
     subscription_id INT PRIMARY KEY,
     start_date DATE NOT NULL,
     end_date DATE NOT NULL,
     CHECK(start_date < end_date),
     status ENUM('active', 'inactive') NOT NULL,
-    customer_id INT NOT NULL,
+	customer_id INT NOT NULL,
     plan_id INT NOT NULL,
     FOREIGN KEY (customer_id) REFERENCES Customer(customer_id) ON UPDATE CASCADE,
+    FOREIGN KEY (plan_id) REFERENCES ServicePlan(plan_id)
+)ENGINE=InnoDB;
+
+
+-- -------------------------------
+-- TABLE: Promotion
+-- Purpose: manage discount campaigns.
+-- -------------------------------
+CREATE TABLE Promotion (
+    promotion_id INT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    description TEXT NOT NULL,
+    discount_value DECIMAL(10,2) NOT NULL,
+    start_date DATE NOT NULL,
+    end_date DATE NOT NULL,
+    status ENUM('active', 'expired') NOT NULL,
+    plan_id INT NOT NULL,
     FOREIGN KEY (plan_id) REFERENCES ServicePlan(plan_id)
 )ENGINE=InnoDB;
 
@@ -41,7 +129,6 @@ CREATE TABLE Subscription (
 -- TABLE: SubscriptionPromotion
 -- Purpose: connect subscriptions with promotions flexibly and accurately/.
 -- -------------------------------
-DROP TABLE IF EXISTS SubscriptionPromotion;
 CREATE TABLE SubscriptionPromotion (
     subscription_id INT NOT NULL,
     promotion_id INT NOT NULL,
@@ -57,65 +144,25 @@ CREATE TABLE SubscriptionPromotion (
 
 
 -- -------------------------------
--- TABLE: Promotion
--- Purpose: manage discount campaigns.
+-- TABLE: NetworkElement
+-- Purpose: models infrastructure components such as cell towers.
 -- -------------------------------
-DROP TABLE IF EXISTS Promotion;
-CREATE TABLE Promotion (
-    promotion_id INT PRIMARY KEY,
+CREATE TABLE NetworkElement (
+    network_element_id INT PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
-    description TEXT NOT NULL,
-    discount_value DECIMAL(10,2) NOT NULL,
-    start_date DATE NOT NULL,
-    end_date DATE NOT NULL,
-    status ENUM('active', 'expired') NOT NULL,
-    plan_id INT NOT NULL,
-    FOREIGN KEY (plan_id) REFERENCES ServicePlan(plan_id)
-)ENGINE=InnoDB;
-
-
--- -------------------------------
--- TABLE: ServicePlan
--- Purpose: defines the features and pricing of plans.
--- -------------------------------
-DROP TABLE IF EXISTS ServicePlan;
-CREATE TABLE ServicePlan (
-    plan_id INT PRIMARY KEY,
-    plan_name VARCHAR(100) NOT NULL,
-    price DECIMAL(10,2) CHECK (price > 0),
-    data_limit_gb DECIMAL(10,2) NOT NULL,
-    call_minutes INT NOT NULL,
-    sms_count INT NOT NULL,
-    validity_days INT NOT NULL,
-    status ENUM('active', 'inactive') NOT NULL
-)ENGINE=InnoDB;
-
-
--- -------------------------------
--- TABLE: UsageData
--- Purpose: stores call, SMS, and data usage per subscription per day.
--- -------------------------------
-DROP TABLE IF EXISTS UsageData;
-CREATE TABLE UsageData (
-    usage_id INT PRIMARY KEY,
-    usage_type ENUM('call', 'sms', 'data') NOT NULL,
-    amount DECIMAL(10,2) NOT NULL, -- minutes for call, count for sms, MB for data   
-    subscription_id INT NOT NULL,
-    network_element_id INT NOT NULL,
-    time_id INT NOT NULL,
-    FOREIGN KEY (subscription_id) REFERENCES Subscription(subscription_id) 
-    ON UPDATE CASCADE
-    ON DELETE RESTRICT,
-    FOREIGN KEY (network_element_id) REFERENCES NetworkElement(network_element_id),
-    FOREIGN KEY (time_id) REFERENCES Time(time_id)
-)ENGINE=InnoDB;
+    element_type ENUM('tower', 'router', 'switch') NOT NULL,
+    status ENUM('active', 'inactive') NOT NULL,
+	location_id INT NOT NULL,
+	employee_id INT NOT NULL,
+    FOREIGN KEY (location_id) REFERENCES Location(location_id),
+	FOREIGN KEY (employee_id) REFERENCES Employee(employee_id)
+    )ENGINE=InnoDB;
 
 
 -- -------------------------------
 -- TABLE: Billing
 -- Purpose: represents monthly bills for subscriptions.
 -- -------------------------------
-DROP TABLE IF EXISTS Billing;
 CREATE TABLE Billing (
     billing_id INT PRIMARY KEY,
     billing_period_start DATE NOT NULL,
@@ -133,32 +180,12 @@ CREATE TABLE Billing (
 
 
 -- -------------------------------
--- TABLE: Transaction
--- Purpose: logs financial activity such as online payments or bank transfers.
--- -------------------------------
-DROP TABLE IF EXISTS Transaction;
-CREATE TABLE Transaction (
-    transaction_id INT PRIMARY KEY AUTO_INCREMENT,
-    transaction_type ENUM('deposit', 'withdraw', 'transfer') NOT NULL,
-    amount DECIMAL(10,2) NOT NULL,
-    transaction_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    status ENUM('success', 'failed', 'pending') NOT NULL,
-    description TEXT NOT NULL,
-    customer_id INT NOT NULL,
-    FOREIGN KEY (customer_id) REFERENCES Customer(customer_id) 
-	ON UPDATE CASCADE
-	ON DELETE RESTRICT
-)ENGINE=InnoDB;
-
-
--- -------------------------------
 -- TABLE: Payment
 -- Purpose: records customer payments toward bills.
 -- -------------------------------
-DROP TABLE IF EXISTS Payment;
 CREATE TABLE Payment (
     payment_id INT PRIMARY KEY,
-    payment_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+	payment_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
     amount_paid DECIMAL(10,2) NOT NULL CHECK(amount_paid >= 0),
     payment_status ENUM('completed', 'failed', 'pending') NOT NULL,
     billing_id INT NOT NULL,
@@ -167,59 +194,39 @@ CREATE TABLE Payment (
 
 
 -- -------------------------------
--- TABLE: Location
--- Purpose: supports geographical references across entities.
+-- TABLE: Transaction
+-- Purpose: logs financial activity such as online payments or bank transfers.
 -- -------------------------------
-DROP TABLE IF EXISTS Location;
-CREATE TABLE Location (
-    location_id INT PRIMARY KEY,
-    city VARCHAR(50) UNIQUE,
-    country VARCHAR(50) UNIQUE
+CREATE TABLE Transaction (
+    transaction_id INT PRIMARY KEY AUTO_INCREMENT,
+    transaction_type ENUM('deposit', 'withdraw', 'transfer') NOT NULL,
+    amount DECIMAL(10,2) NOT NULL,
+    transaction_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    status ENUM('success', 'failed', 'pending') NOT NULL,
+    description TEXT NOT NULL,
+	customer_id INT NOT NULL,
+    FOREIGN KEY (customer_id) REFERENCES Customer(customer_id) 
+	ON UPDATE CASCADE
+	ON DELETE RESTRICT
 )ENGINE=InnoDB;
 
 
 -- -------------------------------
--- TABLE: NetworkElement
--- Purpose: models infrastructure components such as cell towers.
+-- TABLE: UsageData
+-- Purpose: stores call, SMS, and data usage per subscription per day.
 -- -------------------------------
-DROP TABLE IF EXISTS NetworkElement;
-CREATE TABLE NetworkElement (
-    network_element_id INT PRIMARY KEY,
-    name VARCHAR(100) NOT NULL,
-    element_type ENUM('tower', 'router', 'switch') NOT NULL,
-    status ENUM('active', 'inactive') NOT NULL,
-    location_id INT NOT NULL,  
-    employee_id INT NOT NULL,
-    FOREIGN KEY (location_id) REFERENCES Location(location_id),
-    FOREIGN KEY (employee_id) REFERENCES Employee(employee_id)
-    )ENGINE=InnoDB;
-
-
--- -------------------------------
--- TABLE: Time
--- Purpose: provides a time dimension for reporting and analysis.
--- -------------------------------
-DROP TABLE IF EXISTS Time;
-CREATE TABLE Time (
-    time_id INT PRIMARY KEY,
-    full_timestamp TIMESTAMP NOT NULL,
-    day_of_week VARCHAR(20) NOT NULL,
-    part_of_day ENUM('morning', 'afternoon', 'evening', 'night') NOT NULL
-)ENGINE=InnoDB;
-
-
--- -------------------------------
--- TABLE: Employee
--- Purpose: stores staff information
--- -------------------------------
-DROP TABLE IF EXISTS Employee;
-CREATE TABLE Employee (
-    employee_id INT PRIMARY KEY,
-    full_name VARCHAR(100) NOT NULL,
-    email VARCHAR(100) UNIQUE NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    role ENUM('support', 'network_admin') NOT NULL,
-    status ENUM('active', 'inactive') NOT NULL
+CREATE TABLE UsageData (
+    usage_id INT PRIMARY KEY,
+    usage_type ENUM('call', 'sms', 'data') NOT NULL,
+	amount DECIMAL(10,2) NOT NULL, -- minutes for call, count for sms, MB for data   
+    subscription_id INT NOT NULL,
+    network_element_id INT NOT NULL,
+    time_id INT NOT NULL,
+    FOREIGN KEY (subscription_id) REFERENCES Subscription(subscription_id) 
+    ON UPDATE CASCADE
+    ON DELETE RESTRICT,
+    FOREIGN KEY (network_element_id) REFERENCES NetworkElement(network_element_id),
+	FOREIGN KEY (time_id) REFERENCES Time(time_id)
 )ENGINE=InnoDB;
 
 
@@ -227,14 +234,13 @@ CREATE TABLE Employee (
 -- TABLE: CustomerSupport
 -- Purpose: log support tickets and staff interactions.
 -- -------------------------------
-DROP TABLE IF EXISTS CustomerSupport;
 CREATE TABLE CustomerSupport (
     support_id INT PRIMARY KEY,
     support_type ENUM('technical', 'billing') NOT NULL,
     description TEXT NOT NULL,
     status ENUM('open', 'closed', 'in_progress') NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    closed_at TIMESTAMP NULL DEFAULT NULL,
+	created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+	closed_at TIMESTAMP NULL DEFAULT NULL,
     priority ENUM('low', 'medium', 'high'),
     customer_id INT NOT NULL,
     employee_id INT NOT NULL,
@@ -242,10 +248,26 @@ CREATE TABLE CustomerSupport (
     FOREIGN KEY (employee_id) REFERENCES Employee(employee_id)
 )ENGINE=InnoDB;
 
+
 SHOW TABLES;
 -- -------------------------------
 -- Populate Sample Data
 -- -------------------------------
+
+
+INSERT INTO Location (location_id, city, country) VALUES
+(1, 'Berlin', 'Germany'),
+(2, 'Barcelona', 'Spain'),
+(3, 'Sydney', 'Australia'),
+(4, 'Helsinki', 'Finland'),
+(5, 'Tokyo', 'Japan');
+
+
+INSERT INTO Employee (employee_id, full_name, email, role, status) VALUES
+(1, 'Alice Jensen', 'alice.jensen@teleco.com', 'network_admin', 'active'),
+(2, 'Markus Lindgren', 'markus.lindgren@teleco.com', 'support', 'active'),
+(3, 'Chloe Dubois', 'chloe.dubois@teleco.com', 'network_admin', 'active');
+
 
 INSERT INTO Customer (customer_id, full_name, phone, email, location_id, registration_date, status) VALUES
 (1, 'John Smith', '09121234501', 'john.smith@example.com', 1, '2024-01-15', 'active'),
@@ -281,6 +303,27 @@ INSERT INTO Customer (customer_id, full_name, phone, email, location_id, registr
 (31,'Ethan Baker', '09121234531', 'ethan.baker@example.com', 1, '2024-01-02', 'active');
 
 
+INSERT INTO ServicePlan (plan_id, plan_name, price, data_limit_gb, call_minutes, sms_count, validity_days, status) VALUES
+(1, 'Basic Plan', 9.99, 5.00, 100, 100, 30, 'active'),
+(2, 'Standard Plan', 19.99, 10.00, 300, 300, 30, 'active'),
+(3, 'Premium Plan', 29.99, 25.00, 1000, 500, 30, 'active'),
+(4, 'Unlimited Talk Plan', 24.99, 3.00, 9999, 500, 30, 'active'),
+(5, 'Data Max Plan', 34.99, 50.00, 500, 100, 30, 'active');
+
+
+INSERT INTO Time (time_id, full_timestamp, day_of_week, part_of_day) VALUES
+(1, '2025-05-01 08:30:00', 'Thursday', 'morning'),
+(2, '2025-05-01 14:15:00', 'Thursday', 'afternoon'),
+(3, '2025-05-02 19:45:00', 'Friday', 'evening'),
+(4, '2025-05-03 23:00:00', 'Saturday', 'night'),
+(5, '2025-05-04 09:20:00', 'Sunday', 'morning'),
+(6, '2025-05-05 15:10:00', 'Monday', 'afternoon'),
+(7, '2025-05-06 18:00:00', 'Tuesday', 'evening'),
+(8, '2025-05-07 21:50:00', 'Wednesday', 'night'),
+(9, '2025-05-08 07:40:00', 'Thursday', 'morning'),
+(10, '2025-05-09 16:30:00', 'Friday', 'afternoon');
+
+
 INSERT INTO Subscription (subscription_id, start_date, end_date, status, customer_id, plan_id) VALUES
 (1, '2024-01-01', '2024-12-31', 'active', 1, 1),
 (2, '2024-02-01', '2024-11-30', 'inactive', 2, 2),
@@ -313,6 +356,32 @@ INSERT INTO Subscription (subscription_id, start_date, end_date, status, custome
 (29, '2024-05-15', '2025-05-14', 'active', 29, 4),
 (30, '2024-06-05', '2025-06-04', 'active', 30, 5),
 (31, '2024-07-10', '2025-07-09', 'active', 31, 1);
+
+
+INSERT INTO Promotion (promotion_id, name, description, discount_value, start_date, end_date, status, plan_id) VALUES
+(1, 'Welcome Bonus', '10% off on first month', 10.00, '2025-01-01', '2025-12-31', 'active', 1),
+(2, 'Data Booster', '5 GB extra data free', 5.00, '2025-02-01', '2025-08-31', 'active', 2),
+(3, 'Talk Time Saver', '20% off on call minutes', 8.00, '2025-01-15', '2025-06-30', 'expired', 3),
+(4, 'SMS Frenzy', 'Unlimited SMS add-on', 6.00, '2025-03-01', '2025-07-01', 'active', 4),
+(5, 'Combo Deal', 'All-in-one package discount', 15.00, '2025-01-20', '2025-12-31', 'active', 5),
+(6, 'Loyalty Reward', 'Special rate for long-term users', 12.00, '2025-02-15', '2025-12-15', 'active', 1),
+(7, 'Night Owl', 'Night usage discount', 7.00, '2025-03-01', '2025-09-30', 'active', 2),
+(8, 'Weekend Treat', 'Weekend usage bonus', 9.00, '2025-04-01', '2025-10-01', 'active', 3),
+(9, 'Student Saver', 'Student-exclusive discount', 10.00, '2025-01-10', '2025-12-31', 'active', 4),
+(10, 'Festive Offer', 'Seasonal promotional package', 13.00, '2025-03-15', '2025-05-30', 'expired', 5);
+
+
+INSERT INTO NetworkElement (network_element_id, name, element_type, status, location_id, employee_id) VALUES
+(1, 'Tower Alpha', 'tower', 'active', 1, 1),
+(2, 'Router Beta', 'router', 'active', 2, 2),
+(3, 'Switch Gamma', 'switch', 'active', 3, 3),
+(4, 'Tower Delta', 'tower', 'inactive', 4, 2),
+(5, 'Router Epsilon', 'router', 'active', 5, 3),
+(6, 'Switch Zeta', 'switch', 'inactive', 1, 1),
+(7, 'Tower Eta', 'tower', 'active', 2, 3),
+(8, 'Router Theta', 'router', 'active', 3, 1),
+(9, 'Switch Iota', 'switch', 'active', 4, 2),
+(10, 'Tower Kappa', 'tower', 'active', 5, 2);
 
 
 INSERT INTO SubscriptionPromotion (subscription_id, promotion_id, applied_date) VALUES
@@ -358,25 +427,44 @@ INSERT INTO SubscriptionPromotion (subscription_id, promotion_id, applied_date) 
 (9, 10, '2025-03-20');
 
 
-INSERT INTO Promotion (promotion_id, name, description, discount_value, start_date, end_date, status, plan_id) VALUES
-(1, 'Welcome Bonus', '10% off on first month', 10.00, '2025-01-01', '2025-12-31', 'active', 1),
-(2, 'Data Booster', '5 GB extra data free', 5.00, '2025-02-01', '2025-08-31', 'active', 2),
-(3, 'Talk Time Saver', '20% off on call minutes', 8.00, '2025-01-15', '2025-06-30', 'expired', 3),
-(4, 'SMS Frenzy', 'Unlimited SMS add-on', 6.00, '2025-03-01', '2025-07-01', 'active', 4),
-(5, 'Combo Deal', 'All-in-one package discount', 15.00, '2025-01-20', '2025-12-31', 'active', 5),
-(6, 'Loyalty Reward', 'Special rate for long-term users', 12.00, '2025-02-15', '2025-12-15', 'active', 1),
-(7, 'Night Owl', 'Night usage discount', 7.00, '2025-03-01', '2025-09-30', 'active', 2),
-(8, 'Weekend Treat', 'Weekend usage bonus', 9.00, '2025-04-01', '2025-10-01', 'active', 3),
-(9, 'Student Saver', 'Student-exclusive discount', 10.00, '2025-01-10', '2025-12-31', 'active', 4),
-(10, 'Festive Offer', 'Seasonal promotional package', 13.00, '2025-03-15', '2025-05-30', 'expired', 5);
+INSERT INTO Billing (billing_id, billing_period_start, billing_period_end, issue_date, due_date, discount_amount, total_amount,
+ status, subscription_id) VALUES
+(1, '2025-04-01', '2025-04-30', '2025-05-01', '2025-05-10', 5.00, 50.00, 'paid', 1),
+(2, '2025-04-01', '2025-04-30', '2025-05-01', '2025-05-10', 0.00, 60.00, 'unpaid', 2),
+(3, '2025-03-01', '2025-03-31', '2025-04-01', '2025-04-10', 10.00, 55.00, 'paid', 3),
+(4, '2025-04-15', '2025-05-14', '2025-05-15', '2025-05-25', 2.50, 45.00, 'pending', 4),
+(5, '2025-05-01', '2025-05-31', '2025-06-01', '2025-06-10', 0.00, 70.00, 'paid', 5),
+(6, '2025-04-01', '2025-04-30', '2025-05-01', '2025-05-10', 3.00, 40.00, 'paid', 6),
+(7, '2025-03-01', '2025-03-31', '2025-04-01', '2025-04-10', 0.00, 65.00, 'unpaid', 7),
+(8, '2025-05-01', '2025-05-31', '2025-06-01', '2025-06-10', 7.00, 80.00, 'pending', 8),
+(9, '2025-05-01', '2025-05-31', '2025-06-01', '2025-06-10', 0.00, 75.00, 'paid', 9),
+(10, '2025-03-15', '2025-04-14', '2025-04-15', '2025-04-25', 5.00, 50.00, 'unpaid', 10);
 
 
-INSERT INTO ServicePlan (plan_id, plan_name, price, data_limit_gb, call_minutes, sms_count, validity_days, status) VALUES
-(1, 'Basic Plan', 9.99, 5.00, 100, 100, 30, 'active'),
-(2, 'Standard Plan', 19.99, 10.00, 300, 300, 30, 'active'),
-(3, 'Premium Plan', 29.99, 25.00, 1000, 500, 30, 'active'),
-(4, 'Unlimited Talk Plan', 24.99, 3.00, 9999, 500, 30, 'active'),
-(5, 'Data Max Plan', 34.99, 50.00, 500, 100, 30, 'active');
+INSERT INTO Payment (payment_id, amount_paid, payment_status, billing_id) VALUES
+(1, 55.00, 'completed', 1),
+(2, 60.00, 'completed', 2),
+(3, 45.00, 'failed', 3),
+(4, 70.00, 'completed', 4),
+(5, 50.00, 'pending', 5),
+(6, 65.00, 'completed', 6),
+(7, 80.00, 'completed', 7),
+(8, 40.00, 'failed', 8),
+(9, 90.00, 'completed', 9),
+(10, 75.00, 'pending', 10);
+
+
+INSERT INTO Transaction (transaction_type, amount, status, description, customer_id) VALUES
+('deposit', 100.00, 'success', 'Top-up via credit card', 1),
+('withdraw', 50.00, 'success', 'Bill payment deduction', 2),
+('transfer', 30.00, 'success', 'Transferred to family account', 3),
+('deposit', 75.00, 'pending', 'Pending bank processing', 4),
+('withdraw', 60.00, 'failed', 'Insufficient balance', 5),
+('deposit', 120.00, 'success', 'Direct debit recharge', 6),
+('transfer', 40.00, 'success', 'Transferred to another number', 7),
+('withdraw', 55.00, 'success', 'Monthly bill auto-payment', 8),
+('deposit', 90.00, 'success', 'Top-up via app', 9),
+('withdraw', 65.00, 'pending', 'Scheduled deduction', 10);
 
 
 INSERT INTO UsageData (usage_id, usage_type, amount, subscription_id, network_element_id, time_id) VALUES
@@ -402,46 +490,6 @@ INSERT INTO UsageData (usage_id, usage_type, amount, subscription_id, network_el
 (20, 'data', 300.00, 10, 3, 10);
 
 
-INSERT INTO Time (time_id, full_timestamp, day_of_week, part_of_day) VALUES
-(1, '2025-05-01 08:30:00', 'Thursday', 'morning'),
-(2, '2025-05-01 14:15:00', 'Thursday', 'afternoon'),
-(3, '2025-05-02 19:45:00', 'Friday', 'evening'),
-(4, '2025-05-03 23:00:00', 'Saturday', 'night'),
-(5, '2025-05-04 09:20:00', 'Sunday', 'morning'),
-(6, '2025-05-05 15:10:00', 'Monday', 'afternoon'),
-(7, '2025-05-06 18:00:00', 'Tuesday', 'evening'),
-(8, '2025-05-07 21:50:00', 'Wednesday', 'night'),
-(9, '2025-05-08 07:40:00', 'Thursday', 'morning'),
-(10, '2025-05-09 16:30:00', 'Friday', 'afternoon');
-
-
-INSERT INTO NetworkElement (network_element_id, name, element_type, status, location_id, employee_id) VALUES
-(1, 'Tower Alpha', 'tower', 'active', 1, 1),
-(2, 'Router Beta', 'router', 'active', 2, 2),
-(3, 'Switch Gamma', 'switch', 'active', 3, 3),
-(4, 'Tower Delta', 'tower', 'inactive', 4, 2),
-(5, 'Router Epsilon', 'router', 'active', 5, 3),
-(6, 'Switch Zeta', 'switch', 'inactive', 1, 1),
-(7, 'Tower Eta', 'tower', 'active', 2, 3),
-(8, 'Router Theta', 'router', 'active', 3, 1),
-(9, 'Switch Iota', 'switch', 'active', 4, 2),
-(10, 'Tower Kappa', 'tower', 'active', 5, 2);
-
-
-INSERT INTO Location (location_id, city, country) VALUES
-(1, 'Berlin', 'Germany'),
-(2, 'Barcelona', 'Spain'),
-(3, 'Sydney', 'Australia'),
-(4, 'Helsinki', 'Finland'),
-(5, 'Tokyo', 'Japan');
-
-
-INSERT INTO Employee (employee_id, full_name, email, role, status) VALUES
-(1, 'Alice Jensen', 'alice.jensen@teleco.com', 'network_admin', 'active'),
-(2, 'Markus Lindgren', 'markus.lindgren@teleco.com', 'support', 'active'),
-(3, 'Chloe Dubois', 'chloe.dubois@teleco.com', 'network_admin', 'active');
-
-
 INSERT INTO CustomerSupport (support_id, support_type, description, status, created_at, closed_at, priority,
  customer_id, employee_id) VALUES
 (1, 'technical', 'Internet connection drops intermittently.', 'closed', '2024-11-01 10:15:00', '2024-11-02 14:30:00', 'high', 1, 1),
@@ -449,47 +497,6 @@ INSERT INTO CustomerSupport (support_id, support_type, description, status, crea
 (3, 'technical', 'Router is not turning on after reboot.', 'in_progress', '2025-06-01 09:00:00', NULL, 'high', 3, 3),
 (4, 'billing', 'Need clarification on VAT charges.', 'closed', '2025-05-15 12:00:00', '2025-05-16 16:00:00', 'low', 4, 2),
 (5, 'technical', 'Slow internet speed during evenings.', 'in_progress', '2025-06-01 19:00:00', NULL, 'medium', 5, 1);
-
-
-INSERT INTO Billing (billing_id, billing_period_start, billing_period_end, issue_date, due_date, discount_amount, total_amount,
- status, subscription_id) VALUES
-(1, '2025-04-01', '2025-04-30', '2025-05-01', '2025-05-10', 5.00, 50.00, 'paid', 1),
-(2, '2025-04-01', '2025-04-30', '2025-05-01', '2025-05-10', 0.00, 60.00, 'unpaid', 2),
-(3, '2025-03-01', '2025-03-31', '2025-04-01', '2025-04-10', 10.00, 55.00, 'paid', 3),
-(4, '2025-04-15', '2025-05-14', '2025-05-15', '2025-05-25', 2.50, 45.00, 'pending', 4),
-(5, '2025-05-01', '2025-05-31', '2025-06-01', '2025-06-10', 0.00, 70.00, 'paid', 5),
-(6, '2025-04-01', '2025-04-30', '2025-05-01', '2025-05-10', 3.00, 40.00, 'paid', 6),
-(7, '2025-03-01', '2025-03-31', '2025-04-01', '2025-04-10', 0.00, 65.00, 'unpaid', 7),
-(8, '2025-05-01', '2025-05-31', '2025-06-01', '2025-06-10', 7.00, 80.00, 'pending', 8),
-(9, '2025-05-01', '2025-05-31', '2025-06-01', '2025-06-10', 0.00, 75.00, 'paid', 9),
-(10, '2025-03-15', '2025-04-14', '2025-04-15', '2025-04-25', 5.00, 50.00, 'unpaid', 10);
-
-
-INSERT INTO Transaction (transaction_type, amount, status, description, customer_id) VALUES
-('deposit', 100.00, 'success', 'Top-up via credit card', 1),
-('withdraw', 50.00, 'success', 'Bill payment deduction', 2),
-('transfer', 30.00, 'success', 'Transferred to family account', 3),
-('deposit', 75.00, 'pending', 'Pending bank processing', 4),
-('withdraw', 60.00, 'failed', 'Insufficient balance', 5),
-('deposit', 120.00, 'success', 'Direct debit recharge', 6),
-('transfer', 40.00, 'success', 'Transferred to another number', 7),
-('withdraw', 55.00, 'success', 'Monthly bill auto-payment', 8),
-('deposit', 90.00, 'success', 'Top-up via app', 9),
-('withdraw', 65.00, 'pending', 'Scheduled deduction', 10);
-
-
-INSERT INTO Payment (payment_id, amount_paid, payment_status, billing_id) VALUES
-(1, 55.00, 'completed', 1),
-(2, 60.00, 'completed', 2),
-(3, 45.00, 'failed', 3),
-(4, 70.00, 'completed', 4),
-(5, 50.00, 'pending', 5),
-(6, 65.00, 'completed', 6),
-(7, 80.00, 'completed', 7),
-(8, 40.00, 'failed', 8),
-(9, 90.00, 'completed', 9),
-(10, 75.00, 'pending', 10);
-
 
 -- 1. Count number of customers registered in each city
 SELECT 
@@ -855,7 +862,4 @@ GROUP BY sp.plan_id;
 SELECT *
 FROM ServicePlanUsageSummary
 ORDER BY report_generated_at DESC;
-
-
-
 
